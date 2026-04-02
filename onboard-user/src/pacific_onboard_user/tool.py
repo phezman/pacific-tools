@@ -24,7 +24,7 @@ from pacific_core.ontology.namespace import PAC
 from pacific_core.owner import OwnerType
 from pacific_core.tools import Tool
 
-from pacific_tools.onboard_user.conversation import run_onboarding_conversation
+from pacific_onboard_user.conversation import run_onboarding_conversation
 
 if TYPE_CHECKING:
     from pacific_core.module import Module

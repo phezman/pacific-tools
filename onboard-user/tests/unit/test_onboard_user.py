@@ -10,8 +10,8 @@ from pacific_core.driver import IngestResult
 from pacific_core.extraction.types import EntityMention, ExtractionResult, RelationshipMention
 from pacific_core.owner import OwnerType
 
-from pacific_tools.onboard_user.conversation import OnboardingTranscript, Turn
-from pacific_tools.onboard_user.tool import OnboardUserTool
+from pacific_onboard_user.conversation import OnboardingTranscript, Turn
+from pacific_onboard_user.tool import OnboardUserTool
 
 
 # ── Fakes ────────────────────────────────────────────────────────────────────
@@ -121,9 +121,9 @@ class TestOnboardUserTool:
         with pytest.raises(RuntimeError, match="agent_id"):
             await tool.run(module)
 
-    @patch("pacific_tools.onboard_user.tool.run_onboarding_conversation")
-    @patch("pacific_tools.onboard_user.tool.RelationshipExtractor")
-    @patch("pacific_tools.onboard_user.tool.EntityExtractor")
+    @patch("pacific_onboard_user.tool.run_onboarding_conversation")
+    @patch("pacific_onboard_user.tool.RelationshipExtractor")
+    @patch("pacific_onboard_user.tool.EntityExtractor")
     async def test_full_pipeline(self, MockEntity, MockRel, mock_convo):
         mock_convo.return_value = SAMPLE_TRANSCRIPT
 
@@ -154,11 +154,9 @@ class TestOnboardUserTool:
         assert "Acme Corp" in labels
 
         # Verify relationship assertions were written
-        # 2 from extraction + 2 knows-assertions (Alice and Bob are person entities,
-        # but Alice's URI == root_node_uri mapping depends on label, so Bob gets a knows)
         assert len(module._assertions_created) >= 2
 
-    @patch("pacific_tools.onboard_user.tool.run_onboarding_conversation")
+    @patch("pacific_onboard_user.tool.run_onboarding_conversation")
     async def test_empty_conversation(self, mock_convo):
         mock_convo.return_value = OnboardingTranscript(
             turns=[Turn(role="agent", text="Hi! Tell me about yourself.")],
@@ -172,9 +170,9 @@ class TestOnboardUserTool:
         assert result.entities_extracted == 0
         assert "no user input" in result.errors[0].lower()
 
-    @patch("pacific_tools.onboard_user.tool.run_onboarding_conversation")
-    @patch("pacific_tools.onboard_user.tool.RelationshipExtractor")
-    @patch("pacific_tools.onboard_user.tool.EntityExtractor")
+    @patch("pacific_onboard_user.tool.run_onboarding_conversation")
+    @patch("pacific_onboard_user.tool.RelationshipExtractor")
+    @patch("pacific_onboard_user.tool.EntityExtractor")
     async def test_knows_assertions_for_person_entities(self, MockEntity, MockRel, mock_convo):
         """The tool should assert owner --knows--> every discovered person."""
         mock_convo.return_value = SAMPLE_TRANSCRIPT
@@ -195,8 +193,6 @@ class TestOnboardUserTool:
             a for a in module._assertions_created
             if a["predicate"] == "https://pacific.systems/ontology/knows"
         ]
-        # Alice and Bob Smith are person entities. The root node is alice's URI.
-        # Both should get knows-assertions from the root node (unless their URI == root).
         assert len(knows_assertions) >= 1
         assert all(a["confidence"] == 1.0 for a in knows_assertions)
         assert all(a["source"].startswith("onboarding:") for a in knows_assertions)

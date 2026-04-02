@@ -5,6 +5,6 @@ extracts entities and relationships from the person's answers, and writes the
 initial sovereign graph.
 """
 
-from pacific_tools.onboard_user.tool import OnboardUserTool
+from pacific_onboard_user.tool import OnboardUserTool
 
 __all__ = ["OnboardUserTool"]

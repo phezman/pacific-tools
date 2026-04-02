@@ -1,35 +1,64 @@
 # pacific-tools
 
-Pluggable tools for Pacific modules. Each tool implements `pacific_core.tools.Tool` ABC.
+Monorepo of installable tools for Pacific modules. Each subdirectory is an independent Python package with its own `pyproject.toml`.
 
 ## Architecture
 
-Tools are standalone packages that depend on `pacific-core`. A module's `ToolManager` registers them, and its `Driver` invokes them via `driver.ingest(tool_name, **kwargs)`.
+Tools fall into two categories:
 
-## Tools
+### MCP tools
+Directly available to the conversation agent during coherence sessions. They expose a JSON Schema `input_schema` and return structured dicts. The agent decides when to call them based on the conversation.
 
-### onboard-user
+- **schedule-meeting** — schedule meetings with participants from the sovereign graph
 
-First task when a module's driver is initialised as a person. Runs a conversational onboarding session via ElevenLabs voice agent, extracts entities and relationships from the transcript, and writes the initial sovereign graph.
+### Service adapters
+Manage authentication and API communication with external service providers. Credentials are stored in `/meta/secrets/` in the module's Solid vault via `module.secrets` (pacific-core `Secrets` class). All vault reads go through the driver, which enforces WAC access control via the Solid SDK (`people`).
 
-Pipeline:
-1. Voice conversation (ElevenLabs `AsyncConversation` with pre-configured agent)
-2. Entity extraction (Haiku) on captured transcript
-3. Relationship extraction (Sonnet) between discovered entities
-4. Write Nodes and Assertions to the module's Solid vault
-5. Assert `owner --knows--> person` for every discovered person entity
+- **service-google** — Google Calendar, Gmail, Drive, Meet
+- **service-microsoft** — Outlook Calendar, Mail, OneDrive, Teams
+- **service-slack** — Channels, messaging, users
+- **service-atlassian** — Jira, Confluence, Bitbucket
 
-Requires: an ElevenLabs agent ID configured for onboarding questions.
+### Ingestion tools
+Implement the `pacific_core.tools.Tool` ABC. Registered with `ToolManager` and invoked via `driver.ingest()`. Return `IngestResult`.
 
-## Stack
+- **onboard-user** — conversational onboarding for person-initialised modules
 
-- Python 3.11+
-- `pacific-core` — Module, Driver, Tool ABC, extraction pipeline
-- `elevenlabs` — Conversational AI SDK (voice agent sessions)
+## Key interfaces (from pacific-core)
+
+- `module.secrets.get(Service.GOOGLE)` → `ServiceCredential`
+- `module.secrets.list_services()` → connected services
+- `module.ensure_node(label, node_type)` → create graph Node
+- `module.assert_triple(s, p, o, ...)` → create Assertion
+- `module.graph.query(cypher, ...)` → Neo4j lookup
+
+## Package layout
+
+```
+pacific-tools/
+├── onboard-user/           # pacific-onboard-user
+├── schedule-meeting/       # pacific-schedule-meeting (MCP tool)
+├── service-google/         # pacific-service-google
+├── service-microsoft/      # pacific-service-microsoft
+├── service-slack/          # pacific-service-slack
+└── service-atlassian/      # pacific-service-atlassian
+```
+
+Each package follows:
+```
+{tool}/
+├── pyproject.toml
+├── src/{pacific_package_name}/
+│   ├── __init__.py
+│   └── ...
+└── tests/unit/
+    └── test_{name}.py
+```
 
 ## Development
 
 ```bash
+cd {tool}
 python3 -m venv .venv
 source .venv/bin/activate
 pip install "pacific-core @ git+https://github.com/Pacific-Systems-Ltd/pacific-core.git"
@@ -37,21 +66,10 @@ pip install -e ".[dev]"
 pytest tests/unit/ -v
 ```
 
-## Package layout
-
-```
-src/pacific_tools/
-├── __init__.py
-└── onboard_user/
-    ├── __init__.py
-    ├── tool.py           # OnboardUserTool(Tool)
-    └── conversation.py   # ElevenLabs conversation capture
-```
-
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `pytest tests/unit/ -v` | Run unit tests (no network) |
-| `ruff check src/ tests/` | Lint |
-| `mypy src/` | Type check |
+| `pytest {tool}/tests/unit/ -v` | Run tests for a specific tool |
+| `ruff check {tool}/src/ {tool}/tests/` | Lint a tool |
+| `mypy {tool}/src/` | Type check a tool |
